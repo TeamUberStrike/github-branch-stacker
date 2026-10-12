@@ -33,6 +33,23 @@ def output(args, *, cwd=None):
     return result.stdout.strip()
 
 
+def repo_slug(url):
+    """Extract OWNER/REPO from a git remote URL."""
+    slug = url.strip().rstrip("/")
+
+    if slug.endswith(".git"):
+        slug = slug[:-4]
+
+    if slug.startswith("git@"):
+        slug = slug.split(":", 1)[1]
+    else:
+        parts = slug.split("/")
+        if len(parts) >= 2:
+            slug = "/".join(parts[-2:])
+
+    return slug.lower()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=(
@@ -62,6 +79,25 @@ def main():
 
     # Find the local Git repository.
     root = Path(output(["git", "rev-parse", "--show-toplevel"]))
+
+    # Verify that the local repository's origin matches the target repo.
+    remote_url = run(
+        ["git", "config", "--get", "remote.origin.url"],
+        cwd=root,
+        check=False,
+    ).stdout.strip()
+
+    if not remote_url:
+        raise RuntimeError(
+            f"No 'origin' remote found in local repository {root}."
+        )
+
+    if repo_slug(remote_url) != repo.rstrip("/").lower():
+        raise RuntimeError(
+            f"Local repository {root} points at '{remote_url}', "
+            f"but the target repo is '{repo}'. "
+            f"Run this script from a clone of {repo}."
+        )
 
     print(f"Local repository: {root}")
     print(f"GitHub repository: {repo}")
