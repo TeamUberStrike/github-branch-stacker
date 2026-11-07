@@ -69,10 +69,17 @@ def main():
         help="GitHub native stack number",
     )
 
+    parser.add_argument(
+        "--base",
+        default="main",
+        help="Base branch to merge into the bottom branch (default: main)",
+    )
+
     args = parser.parse_args()
 
     repo = args.repo
     stack_number = args.stack_number
+    base = args.base
 
     # Verify GitHub CLI authentication.
     run(["gh", "auth", "status"])
@@ -137,21 +144,26 @@ def main():
     ]
 
     print(f"\nStack #{stack_number}")
-    print(f"Base branch: {stack['base']['ref']}")
+    print(f"Base branch: {base}")
     print("\nBranches in stack order:")
 
     for index, (branch, pr_number) in enumerate(branches):
         print(f"  {index}: {branch} (PR #{pr_number})")
 
-    print("\nPlanned merges:")
+    # Merge the base branch into the bottom branch, then each parent
+    # branch into its child branch.
+    merges = [(base, branches[0][0])]
 
     for index in range(1, len(branches)):
-        parent = branches[index - 1][0]
-        child = branches[index][0]
+        merges.append((branches[index - 1][0], branches[index][0]))
+
+    print("\nPlanned merges:")
+
+    for parent, child in merges:
         print(f"  {parent} -> {child}")
 
     confirmation = input(
-        "\nMerge each parent into its child and push? Type YES: "
+        "\nMerge the base and each parent into its child and push? Type YES: "
     )
 
     if confirmation != "YES":
@@ -161,10 +173,8 @@ def main():
     # Update remote-tracking references.
     run(["git", "fetch", "origin"], cwd=root)
 
-    # Merge branches bottom-to-top.
-    for index in range(1, len(branches)):
-        parent = branches[index - 1][0]
-        child = branches[index][0]
+    # Merge base and parent branches bottom-to-top.
+    for parent, child in merges:
 
         print(f"\n{'=' * 60}")
         print(f"Merging '{parent}' into '{child}'")
@@ -232,7 +242,10 @@ def main():
             str(worktree),
         ], cwd=root)
 
-    print(f"\nAll parent-to-child merges completed for stack #{stack_number}.")
+    print(
+        f"\nAll base and parent-to-child merges completed "
+        f"for stack #{stack_number}."
+    )
 
 
 if __name__ == "__main__":

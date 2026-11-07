@@ -12,13 +12,20 @@ Merge parent branches into child branches in a GitHub native stack.
 ## Usage
 
 ```
-python merge_stack.py OWNER/REPO STACK_NUMBER
+python merge_stack.py OWNER/REPO STACK_NUMBER [--base BRANCH]
 ```
 
 Example:
 
 ```
 python merge_stack.py TeamUberStrike/uber-client-4-3-8 96
+```
+
+The base branch merged into the bottom of the stack defaults to `main`.
+Override it with `--base`:
+
+```
+python merge_stack.py TeamUberStrike/uber-client-4-3-8 96 --base develop
 ```
 
 ### Finding the stack number
@@ -35,11 +42,14 @@ Or open a PR in the stack on GitHub - the stack number is shown on the PR page.
 
 1. Fetches the native stack via the GitHub API (`repos/OWNER/REPO/stacks/NUMBER`).
 2. Verifies all PRs in the stack are open.
-3. Prints the stack order (bottom-to-top) and the planned parent-to-child merges.
+3. Prints the stack order (bottom-to-top) and the planned merges
+   (base branch into the bottom branch, then each parent into its child).
 4. Asks for confirmation (type `YES`).
-5. For each child branch, in a fresh temporary worktree (created in the system
-   temp directory, e.g. `%TEMP%\stack-96-<random>`):
-   - merges the parent branch into the child with `git merge --no-edit`,
+5. For each child branch, including the bottom branch (which receives the base
+   branch), in a fresh temporary worktree (created in the system temp
+   directory, e.g. `%TEMP%\stack-96-<random>`):
+   - merges the remote parent branch (`origin/<parent>`) into the child with
+     `git merge --no-edit`,
    - pushes the result to the child branch on `origin`,
    - removes the worktree on success.
 
