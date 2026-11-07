@@ -41,6 +41,9 @@ Or open a PR in the stack on GitHub - the stack number is shown on the PR page.
 ## What it does
 
 1. Fetches the native stack via the GitHub API (`repos/OWNER/REPO/stacks/NUMBER`).
+   Before that, fetches `origin` and checks all local branches for commits that
+   are not on a remote. If any are found, it lists them and asks whether to push
+   them; answering no cancels the run.
 2. Verifies all PRs in the stack are open.
 3. Prints the stack order (bottom-to-top) and the planned merges
    (base branch into the bottom branch, then each parent into its child).

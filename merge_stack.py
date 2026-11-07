@@ -50,6 +50,33 @@ def repo_slug(url):
     return slug.lower()
 
 
+def unpushed_branches(root):
+    """Return local branches with commits not present on any remote."""
+    refs = output(
+        ["git", "for-each-ref", "--format=%(refname)", "refs/heads"],
+        cwd=root,
+    )
+
+    unpushed = []
+
+    for ref in refs.splitlines():
+        ref = ref.strip()
+
+        if not ref:
+            continue
+
+        count = int(output(
+            ["git", "rev-list", "--count", ref, "--not", "--remotes"],
+            cwd=root,
+        ))
+
+        if count:
+            name = ref[len("refs/heads/"):] if ref.startswith("refs/heads/") else ref
+            unpushed.append((name, count))
+
+    return unpushed
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=(
@@ -109,6 +136,39 @@ def main():
     print(f"Local repository: {root}")
     print(f"GitHub repository: {repo}")
     print(f"Stack number: {stack_number}")
+
+    # The script only operates on remote branches, so offer to push any
+    # commits that exist only in local branches.
+    run(["git", "fetch", "origin"], cwd=root)
+
+    unpushed = unpushed_branches(root)
+
+    if unpushed:
+        details = "\n".join(
+            f"  {branch}: {count} unpushed commit(s)"
+            for branch, count in unpushed
+        )
+        print("Local branches contain unpushed commits:\n" + details)
+
+        answer = input(
+            "Push them to origin before continuing? [y/N]: "
+        ).strip().lower()
+
+        if answer not in ("y", "yes"):
+            print("Cancelled.")
+            return
+
+        for branch, count in unpushed:
+            print(f"Pushing '{branch}' ({count} unpushed commit(s))...")
+            run([
+                "git",
+                "push",
+                "origin",
+                f"refs/heads/{branch}:refs/heads/{branch}",
+            ], cwd=root)
+
+        # Refresh remote references after the pushes.
+        run(["git", "fetch", "origin"], cwd=root)
 
     # Retrieve the native stack from GitHub.
     stack_json = output([
